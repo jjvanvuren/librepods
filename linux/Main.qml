@@ -88,6 +88,14 @@ ApplicationWindow {
                     }
                 }
 
+                Button {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: !airPodsTrayApp.airpodsConnected
+                    enabled: !airPodsTrayApp.connecting
+                    text: airPodsTrayApp.connecting ? qsTr("Connecting…") : qsTr("Connect")
+                    onClicked: airPodsTrayApp.connectPairedAirPods()
+                }
+
                 // Battery Indicator Row
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter

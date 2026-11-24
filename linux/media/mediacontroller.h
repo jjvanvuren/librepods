@@ -65,6 +65,7 @@ private:
   PlayerStatusWatcher *playerStatusWatcher = nullptr;
   PulseAudioController *m_pulseAudio = nullptr;
   QString m_cachedA2dpProfile;
+  int m_a2dpRetries = 0;
 };
 
 #endif // MEDIACONTROLLER_H

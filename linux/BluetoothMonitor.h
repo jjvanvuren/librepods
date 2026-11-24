@@ -16,10 +16,14 @@ public:
     ~BluetoothMonitor();
 
     bool checkAlreadyConnectedDevices();
+    // Ask BlueZ to connect paired AirPods (preferring preferredAddress). Returns
+    // false if no AirPods are paired; otherwise connectFinished is emitted later.
+    bool connectPairedAirPods(const QString &preferredAddress = QString());
 
 signals:
     void deviceConnected(const QString &macAddress, const QString &deviceName);
     void deviceDisconnected(const QString &macAddress, const QString &deviceName);
+    void connectFinished(bool success, const QString &error);
 
 private slots:
     void onPropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps);

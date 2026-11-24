@@ -47,6 +47,7 @@ class AirPodsTrayApp : public QObject {
     Q_PROPERTY(DeviceInfo *deviceInfo READ deviceInfo CONSTANT)
     Q_PROPERTY(QString phoneMacStatus READ phoneMacStatus NOTIFY phoneMacStatusChanged)
     Q_PROPERTY(bool hearingAidEnabled READ hearingAidEnabled WRITE setHearingAidEnabled NOTIFY hearingAidEnabledChanged)
+    Q_PROPERTY(bool connecting READ connecting NOTIFY connectingChanged)
 
 public:
     AirPodsTrayApp(bool debugMode, bool hideOnStart, QQmlApplicationEngine *parent = nullptr)
@@ -80,6 +81,23 @@ public:
         monitor = new BluetoothMonitor(this);
         connect(monitor, &BluetoothMonitor::deviceConnected, this, &AirPodsTrayApp::bluezDeviceConnected);
         connect(monitor, &BluetoothMonitor::deviceDisconnected, this, &AirPodsTrayApp::bluezDeviceDisconnected);
+        connect(monitor, &BluetoothMonitor::connectFinished, this, [this](bool success, const QString &error)
+        {
+            if (!success)
+            {
+                setConnecting(false);
+                trayManager->showNotification(tr("Couldn't connect AirPods"), error);
+                return;
+            }
+            // BlueZ is connected; stay "connecting" until the app's own connection
+            // is up (airPodsStatusChanged), or give up after 15 s.
+            QTimer::singleShot(15000, this, [this]() { setConnecting(false); });
+        });
+        connect(this, &AirPodsTrayApp::airPodsStatusChanged, this, [this]()
+        {
+            if (areAirpodsConnected())
+                setConnecting(false);
+        });
 
         connect(m_bleManager, &BleManager::deviceFound, this, &AirPodsTrayApp::bleDeviceFound);
         connect(m_deviceInfo->getBattery(), &Battery::primaryChanged, this, &AirPodsTrayApp::primaryChanged);
@@ -127,6 +145,20 @@ public:
     }
 
     bool areAirpodsConnected() const { return socket && socket->isOpen() && socket->state() == QBluetoothSocket::SocketState::ConnectedState; }
+    bool connecting() const { return m_connecting; }
+
+    // Connect button in Main.qml: ask BlueZ to connect the paired AirPods.
+    Q_INVOKABLE void connectPairedAirPods()
+    {
+        if (m_connecting || areAirpodsConnected())
+            return;
+        setConnecting(true);
+        if (!monitor->connectPairedAirPods(m_lastAirPodsAddress))
+        {
+            setConnecting(false);
+            trayManager->showNotification(tr("Couldn't connect AirPods"), tr("No paired AirPods found"));
+        }
+    }
     int earDetectionBehavior() const { return mediaController->getEarDetectionBehavior(); }
     bool crossDeviceEnabled() const { return CrossDevice.isEnabled; }
     AutoStartManager *autoStartManager() const { return m_autoStartManager; }
@@ -444,14 +476,24 @@ public slots:
 private slots:
     void onTrayIconActivated()
     {
-        QQuickWindow *window = qobject_cast<QQuickWindow *>(
-            QGuiApplication::topLevelWindows().constFirst());
-        if (window)
+        for (QWindow *w : QGuiApplication::topLevelWindows())
         {
-            window->show();
-            window->raise();
-            window->requestActivate();
+            if (QQuickWindow *window = qobject_cast<QQuickWindow *>(w))
+            {
+                if (window->isVisible())
+                {
+                    window->hide();
+                }
+                else
+                {
+                    window->show();
+                    window->raise();
+                    window->requestActivate();
+                }
+                return;
+            }
         }
+        loadMainModule();
     }
 
     void onOpenApp()
@@ -520,6 +562,7 @@ private slots:
 
         // Clear the device name and model
         m_deviceInfo->reset();
+        mediaController->setConnectedDeviceMacAddress(QString()); // also stops A2DP retries
         m_bleManager->startScan();
         emit airPodsStatusChanged();
 
@@ -656,6 +699,7 @@ private slots:
 
         localSocket->connectToService(device.address(), QBluetoothUuid("74ec2172-0bad-4d01-8f77-997b2be0722a"));
         m_deviceInfo->setBluetoothAddress(device.address().toString());
+        m_lastAirPodsAddress = device.address().toString();
         notifyAndroidDevice();
     }
 
@@ -969,6 +1013,7 @@ signals:
     void oneBudANCModeChanged(bool enabled);
     void phoneMacStatusChanged();
     void hearingAidEnabledChanged(bool enabled);
+    void connectingChanged();
 
 private:
     QBluetoothSocket *socket = nullptr;
@@ -982,6 +1027,15 @@ private:
     AutoStartManager *m_autoStartManager;
     int m_retryAttempts = 3;
     bool m_hideOnStart = false;
+    bool m_connecting = false;
+    QString m_lastAirPodsAddress; // kept across disconnects, unlike m_deviceInfo
+    void setConnecting(bool connecting)
+    {
+        if (m_connecting == connecting)
+            return;
+        m_connecting = connecting;
+        emit connectingChanged();
+    }
     DeviceInfo *m_deviceInfo;
     BleManager *m_bleManager;
     SystemSleepMonitor *m_systemSleepMonitor = nullptr;
@@ -989,6 +1043,13 @@ private:
 };
 
 int main(int argc, char *argv[]) {
+    // QT_STYLE_OVERRIDE names a widget style (e.g. kvantum), but Qt Quick Controls
+    // treats it as a Quick style, finds no such module and Main.qml fails to load.
+    // Widgets still get the style via the platform theme (qt6ct). org.kde.desktop
+    // (qqc2-desktop-style) draws the Quick controls with that widget style.
+    qunsetenv("QT_STYLE_OVERRIDE");
+    if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE"))
+        qputenv("QT_QUICK_CONTROLS_STYLE", "org.kde.desktop");
     QApplication app(argc, argv);
 
     // Load translations
@@ -1010,12 +1071,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    QLocalServer::removeServer("app_server");
-
-    QFile stale("/tmp/app_server");
-    if (stale.exists())
-        stale.remove();
-
+    // Check for a running instance before clearing the socket; clearing it
+    // first removes the live instance's socket and starts a duplicate.
     QLocalSocket socket_check;
     socket_check.connectToServer("app_server");
 
@@ -1029,6 +1086,12 @@ int main(int argc, char *argv[]) {
 
         return 0;
     }
+
+    QLocalServer::removeServer("app_server");
+
+    QFile stale("/tmp/app_server");
+    if (stale.exists())
+        stale.remove();
     app.setDesktopFileName("me.kavishdevar.librepods");
     app.setQuitOnLastWindowClosed(false);
 

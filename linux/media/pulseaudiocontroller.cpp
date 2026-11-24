@@ -125,7 +125,9 @@ int PulseAudioController::getSinkVolume(const QString &sinkName)
 
     auto callback = [](pa_context *c, const pa_sink_info *info, int eol, void *userdata) {
         CallbackData *d = static_cast<CallbackData*>(userdata);
-        if (eol > 0)
+        // eol < 0: no such card/sink (e.g. not created yet). Wake the waiter
+        // either way, or waitForOperation() blocks the UI thread forever.
+        if (eol != 0)
         {
             pa_threaded_mainloop_signal(d->mainloop, 0);
             return;
@@ -208,7 +210,9 @@ QString PulseAudioController::getCardNameForDevice(const QString &macAddress)
 
     auto callback = [](pa_context *c, const pa_card_info *info, int eol, void *userdata) {
         CallbackData *d = static_cast<CallbackData*>(userdata);
-        if (eol > 0)
+        // eol < 0: no such card/sink (e.g. not created yet). Wake the waiter
+        // either way, or waitForOperation() blocks the UI thread forever.
+        if (eol != 0)
         {
             pa_threaded_mainloop_signal(d->mainloop, 0);
             return;
@@ -253,7 +257,9 @@ bool PulseAudioController::isProfileAvailable(const QString &cardName, const QSt
 
     auto callback = [](pa_context *c, const pa_card_info *info, int eol, void *userdata) {
         CallbackData *d = static_cast<CallbackData*>(userdata);
-        if (eol > 0)
+        // eol < 0: no such card/sink (e.g. not created yet). Wake the waiter
+        // either way, or waitForOperation() blocks the UI thread forever.
+        if (eol != 0)
         {
             pa_threaded_mainloop_signal(d->mainloop, 0);
             return;

@@ -117,6 +117,73 @@ bool BluetoothMonitor::checkAlreadyConnectedDevices()
     return deviceFound;
 }
 
+bool BluetoothMonitor::connectPairedAirPods(const QString &preferredAddress)
+{
+    QDBusInterface objectManager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_dbus);
+    QDBusMessage reply = objectManager.call("GetManagedObjects");
+    if (reply.type() == QDBusMessage::ErrorMessage)
+    {
+        LOG_WARN("Failed to get managed objects: " << reply.errorMessage());
+        return false;
+    }
+
+    ManagedObjectList managedObjects;
+    reply.arguments().constFirst().value<QDBusArgument>() >> managedObjects;
+
+    QString devicePath, address, name;
+    bool alreadyConnected = false;
+    for (auto it = managedObjects.constBegin(); it != managedObjects.constEnd(); ++it)
+    {
+        const QVariantMap props = it.value().value("org.bluez.Device1");
+        if (!props.value("Paired").toBool() ||
+            !props.value("UUIDs").toStringList().contains("74ec2172-0bad-4d01-8f77-997b2be0722a"))
+            continue;
+
+        const QString candidate = props.value("Address").toString();
+        if (devicePath.isEmpty() || candidate.compare(preferredAddress, Qt::CaseInsensitive) == 0)
+        {
+            devicePath = it.key().path();
+            address = candidate;
+            name = props.value("Alias", props.value("Name")).toString();
+            alreadyConnected = props.value("Connected").toBool();
+        }
+    }
+
+    if (devicePath.isEmpty())
+    {
+        LOG_WARN("No paired AirPods found");
+        return false;
+    }
+
+    if (alreadyConnected)
+    {
+        // BlueZ is connected but the app isn't; run the normal connect handling.
+        LOG_INFO("AirPods already connected in BlueZ: " << address);
+        emit deviceConnected(address, name);
+        emit connectFinished(true, QString());
+        return true;
+    }
+
+    LOG_INFO("Connecting to paired AirPods: " << name << " (" << address << ")");
+    QDBusInterface device("org.bluez", devicePath, "org.bluez.Device1", m_dbus);
+    auto *watcher = new QDBusPendingCallWatcher(device.asyncCall("Connect"), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call)
+    {
+        const QDBusPendingReply<> result = *call;
+        if (result.isError())
+        {
+            LOG_WARN("Failed to connect AirPods: " << result.error().message());
+            emit connectFinished(false, result.error().message());
+        }
+        else
+        {
+            emit connectFinished(true, QString());
+        }
+        call->deleteLater();
+    });
+    return true;
+}
+
 void BluetoothMonitor::onPropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps)
 {
     Q_UNUSED(invalidatedProps);

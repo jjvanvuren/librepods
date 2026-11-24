@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QProcess>
 #include <QThread>
+#include <QTimer>
 #include <QRegularExpression>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -169,7 +170,7 @@ QString MediaController::getPreferredA2dpProfile() {
     return m_cachedA2dpProfile;
   }
 
-  QStringList profiles = {"a2dp-sink-sbc_xq", "a2dp-sink-sbc", "a2dp-sink"};
+  QStringList profiles = {"a2dp-sink", "a2dp-sink-sbc_xq", "a2dp-sink-sbc"};
 
   for (const QString &profile : profiles) {
     if (m_pulseAudio->isProfileAvailable(m_deviceOutputName, profile)) {
@@ -197,12 +198,27 @@ bool MediaController::restartWirePlumber() {
 }
 
 void MediaController::activateA2dpProfile() {
-  if (connectedDeviceMacAddress.isEmpty() || m_deviceOutputName.isEmpty()) {
-    LOG_WARN("Connected device MAC address or output name is empty, cannot activate A2DP profile");
+  if (connectedDeviceMacAddress.isEmpty()) {
+    m_a2dpRetries = 0; // disconnected: stop any pending retries
+    LOG_WARN("No connected device, cannot activate A2DP profile");
     return;
   }
 
+  // The card may not have existed yet when the device connected; look it up again.
+  if (m_deviceOutputName.isEmpty()) {
+    m_deviceOutputName = getAudioDeviceName();
+  }
+
   if (!isA2dpProfileAvailable()) {
+    // PipeWire creates the card a moment after the Bluetooth connection, so retry
+    // for ~5 s before falling back to restarting WirePlumber (which interrupts all audio).
+    if (m_a2dpRetries < 10) {
+      ++m_a2dpRetries;
+      LOG_INFO("A2DP profile not available yet, retrying (" << m_a2dpRetries << ")");
+      QTimer::singleShot(500, this, &MediaController::activateA2dpProfile);
+      return;
+    }
+    m_a2dpRetries = 0;
     LOG_WARN("A2DP profile not available, attempting to restart WirePlumber");
     if (restartWirePlumber()) {
       m_deviceOutputName = getAudioDeviceName();
@@ -216,6 +232,7 @@ void MediaController::activateA2dpProfile() {
     }
   }
 
+  m_a2dpRetries = 0;
   QString preferredProfile = getPreferredA2dpProfile();
   if (preferredProfile.isEmpty()) {
     LOG_ERROR("No suitable A2DP profile found");
@@ -243,6 +260,7 @@ void MediaController::removeAudioOutputDevice() {
 
 void MediaController::setConnectedDeviceMacAddress(const QString &macAddress) {
   connectedDeviceMacAddress = macAddress;
+  m_a2dpRetries = 0;
   m_deviceOutputName = getAudioDeviceName();
   m_cachedA2dpProfile.clear();
   LOG_INFO("Device output name set to: " << m_deviceOutputName);
