@@ -193,36 +193,62 @@ void BluetoothMonitor::onPropertiesChanged(const QString &interface, const QVari
         return;
     }
 
+    QString path = QDBusContext::message().path();
+
     if (changedProps.contains("Connected"))
     {
         bool connected = changedProps["Connected"].toBool();
-        QString path = QDBusContext::message().path();
+        m_awaitingServices.remove(path);
 
+        if (!isAirPodsDevice(path))
+        {
+            // When AirPods are first paired, BlueZ connects before it has read
+            // their services, so the AirPods UUID isn't listed yet. Look again
+            // once the services arrive (below).
+            if (connected)
+            {
+                m_awaitingServices.insert(path);
+            }
+            return;
+        }
+
+        announceConnection(path, connected);
+    }
+    else if (m_awaitingServices.contains(path) &&
+             (changedProps.contains("UUIDs") || changedProps.contains("ServicesResolved")))
+    {
         if (!isAirPodsDevice(path))
         {
             return;
         }
+        // Still connected: a disconnect would have removed it from the set.
+        m_awaitingServices.remove(path);
+        LOG_INFO("AirPods services resolved after connecting (new pairing)");
+        announceConnection(path, true);
+    }
+}
 
-        QDBusInterface deviceInterface("org.bluez", path, "org.freedesktop.DBus.Properties", m_dbus);
+void BluetoothMonitor::announceConnection(const QString &devicePath, bool connected)
+{
+    QDBusInterface deviceInterface("org.bluez", devicePath, "org.freedesktop.DBus.Properties", m_dbus);
 
-        // Get the device address
-        QDBusReply<QVariant> addrReply = deviceInterface.call("Get", "org.bluez.Device1", "Address");
-        if (!addrReply.isValid())
-        {
-            return;
-        }
-        QString macAddress = addrReply.value().toString();
-        QString deviceName = getDeviceName(path);
+    // Get the device address
+    QDBusReply<QVariant> addrReply = deviceInterface.call("Get", "org.bluez.Device1", "Address");
+    if (!addrReply.isValid())
+    {
+        return;
+    }
+    QString macAddress = addrReply.value().toString();
+    QString deviceName = getDeviceName(devicePath);
 
-        if (connected)
-        {
-            emit deviceConnected(macAddress, deviceName);
-            LOG_DEBUG("AirPods device connected:" << macAddress << " Name:" << deviceName);
-        }
-        else
-        {
-            emit deviceDisconnected(macAddress, deviceName);
-            LOG_DEBUG("AirPods device disconnected:" << macAddress << " Name:" << deviceName);
-        }
+    if (connected)
+    {
+        emit deviceConnected(macAddress, deviceName);
+        LOG_DEBUG("AirPods device connected:" << macAddress << " Name:" << deviceName);
+    }
+    else
+    {
+        emit deviceDisconnected(macAddress, deviceName);
+        LOG_DEBUG("AirPods device disconnected:" << macAddress << " Name:" << deviceName);
     }
 }

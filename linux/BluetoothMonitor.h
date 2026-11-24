@@ -2,6 +2,7 @@
 #define BLUETOOTHMONITOR_H
 
 #include <QObject>
+#include <QSet>
 #include <QtDBus/QtDBus>
 
 // Forward declarations for D-Bus types
@@ -30,9 +31,13 @@ private slots:
 
 private:
     QDBusConnection m_dbus;
+    // Connected devices whose services BlueZ hadn't read yet when they connected
+    // (a first pairing), so they couldn't be identified as AirPods then.
+    QSet<QString> m_awaitingServices;
     void registerDBusService();
     bool isAirPodsDevice(const QString &devicePath);
     QString getDeviceName(const QString &devicePath);
+    void announceConnection(const QString &devicePath, bool connected);
 };
 
 #endif // BLUETOOTHMONITOR_H
