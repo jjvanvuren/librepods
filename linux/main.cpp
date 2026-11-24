@@ -295,6 +295,12 @@ public slots:
             return;
         }
         LOG_INFO("Setting noise control mode to: " << mode);
+        if (mode == NoiseControlMode::Off)
+        {
+            // AirPods ignore Off (and report their current mode back) unless their
+            // "Allow Off" option is on, which iOS keeps as a separate setting.
+            writePacketToSocket(AirPodsPackets::AllowOffOption::ENABLED, "Allow Off option packet written: ");
+        }
         QByteArray packet = AirPodsPackets::NoiseControl::getPacketForMode(mode);
         writePacketToSocket(packet, "Noise control mode packet written: ");
     }

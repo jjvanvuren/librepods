@@ -2,18 +2,18 @@ pragma ComponentBehavior: Bound
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Shapes
 import "NoiseControlIcons.js" as Icons
 
 // Noise control modes as round icon buttons, like the AirPods controls on
-// Apple devices, with the mode's name as a tooltip. The icons are vector paths
-// (NoiseControlIcons.js) filled from the system palette; the selected mode's
-// circle is filled with the highlight colour.
+// Apple devices, with the mode's name as a tooltip. The icons
+// (NoiseControlIcons.js) are SVG drawn at their exact size on whole pixels, in
+// the system palette's colours; the selected mode's circle is filled with the
+// highlight colour.
 //
-// model: [{text, icon}], icon being a key of Icons.paths, indexed by
-// NoiseControlMode value. Choosing a mode
-// emits activated(index) and leaves currentIndex to its binding, so the owner
-// decides when the selection changes (e.g. once the AirPods confirm it).
+// model: [{text, icon}], icon being a key of Icons.icons, indexed by
+// NoiseControlMode value. Choosing a mode emits activated(index) and leaves
+// currentIndex to its binding, so the owner decides when the selection changes
+// (e.g. once the AirPods confirm it).
 Control {
     id: root
 
@@ -21,8 +21,7 @@ Control {
     property int currentIndex: 0
     signal activated(int index)
 
-    property int buttonSize: 64
-    property int iconHeight: 38 // height the icons' drawn area is scaled to
+    property int buttonSize: 64 // even, so the 44 px icon frame sits on whole pixels
 
     padding: 0
     focusPolicy: Qt.StrongFocus
@@ -46,6 +45,7 @@ Control {
 
                 width: root.buttonSize
                 height: root.buttonSize
+                padding: 0
                 hoverEnabled: true
                 focusPolicy: Qt.NoFocus // Let the root control handle focus
                 ToolTip.text: modelData.text
@@ -66,27 +66,16 @@ Control {
                 }
 
                 contentItem: Item {
-                    // Drawn in the icons' own frame, scaled so their drawn area
-                    // is iconHeight tall and centred in the button
-                    Shape {
-                        anchors.centerIn: parent
-                        anchors.horizontalCenterOffset: (Icons.size / 2 - Icons.bounds.x - Icons.bounds.width / 2) * scale
-                        anchors.verticalCenterOffset: (Icons.size / 2 - Icons.bounds.y - Icons.bounds.height / 2) * scale
+                    Image {
+                        readonly property var offset: Icons.offset(modeButton.modelData.icon)
+                        // Exact size at a whole-pixel position: no scaling, so no blur
+                        x: (root.buttonSize - Icons.size) / 2 + offset.x
+                        y: (root.buttonSize - Icons.size) / 2 + offset.y
                         width: Icons.size
                         height: Icons.size
-                        scale: root.iconHeight / Icons.bounds.height
-                        preferredRendererType: Shape.CurveRenderer // sharp at any scale
-                        antialiasing: true
-
-                        ShapePath {
-                            strokeWidth: -1
-                            fillRule: ShapePath.OddEvenFill
-                            fillColor: modeButton.selected ? systemPalette.highlightedText : systemPalette.buttonText
-
-                            PathSvg {
-                                path: Icons.paths[modeButton.modelData.icon]
-                            }
-                        }
+                        sourceSize: Qt.size(Icons.size, Icons.size)
+                        source: Icons.url(modeButton.modelData.icon,
+                                          (modeButton.selected ? systemPalette.highlightedText : systemPalette.buttonText).toString())
                     }
                 }
 
