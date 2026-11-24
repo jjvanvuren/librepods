@@ -24,15 +24,20 @@ public:
     // too). Returns false if BlueZ doesn't know it; otherwise disconnectFinished
     // is emitted later.
     bool disconnectDevice(const QString &address);
+    // Paired AirPods known to BlueZ, as {address, name} maps sorted by name.
+    QVariantList pairedAirPods();
 
 signals:
     void deviceConnected(const QString &macAddress, const QString &deviceName);
     void deviceDisconnected(const QString &macAddress, const QString &deviceName);
     void connectFinished(bool success, const QString &error);
     void disconnectFinished(bool success, const QString &error);
+    // A device was paired, unpaired, renamed or removed: re-read pairedAirPods().
+    void pairedAirPodsChanged();
 
 private slots:
     void onPropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps);
+    void onInterfacesRemoved(const QDBusObjectPath &path, const QStringList &interfaces);
 
 private:
     QDBusConnection m_dbus;

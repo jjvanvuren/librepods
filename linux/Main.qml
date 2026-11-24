@@ -12,6 +12,8 @@ ApplicationWindow {
     objectName: "mainWindowObject"
 
     onClosing: mainWindow.visible = false
+    // Paired AirPods may have changed while hidden (paired or removed elsewhere)
+    onVisibleChanged: if (visible) airPodsTrayApp.refreshPairedAirPods()
 
     function reopen(pageToLoad) {
         if (pageToLoad == "settings")
@@ -88,18 +90,39 @@ ApplicationWindow {
                     }
                 }
 
-                Button {
+                // One Connect button per paired pair of AirPods
+                Column {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 8
                     visible: !airPodsTrayApp.airpodsConnected
-                    enabled: !airPodsTrayApp.connecting
-                    text: airPodsTrayApp.connecting ? qsTr("Connecting…") : qsTr("Connect")
-                    onClicked: airPodsTrayApp.connectPairedAirPods()
+
+                    Repeater {
+                        model: airPodsTrayApp.pairedAirPods
+
+                        delegate: Button {
+                            required property var modelData
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            enabled: !airPodsTrayApp.connecting
+                            text: airPodsTrayApp.connectingAddress === modelData.address
+                                ? qsTr("Connecting to %1…").arg(modelData.name)
+                                : qsTr("Connect %1").arg(modelData.name)
+                            onClicked: airPodsTrayApp.connectPairedAirPods(modelData.address)
+                        }
+                    }
+
+                    Label {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: airPodsTrayApp.pairedAirPods.length === 0
+                        text: qsTr("No paired AirPods")
+                    }
                 }
 
-                // Battery Indicator Row
+                // Battery Indicator Row. Only while connected: when disconnected,
+                // BLE scans still report the last pair (e.g. from its case).
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
                     spacing: 8
+                    visible: airPodsTrayApp.airpodsConnected
 
                     PodColumn {
                         visible: airPodsTrayApp.deviceInfo.battery.leftPodAvailable

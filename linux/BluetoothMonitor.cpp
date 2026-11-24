@@ -2,6 +2,7 @@
 #include "logger.h"
 
 #include <QDebug>
+#include <algorithm>
 #include <QDBusObjectPath>
 #include <QDBusMetaType>
 
@@ -34,6 +35,21 @@ void BluetoothMonitor::registerDBusService()
                         this, SLOT(onPropertiesChanged(QString, QVariantMap, QStringList))))
     {
         LOG_WARN("Failed to connect to D-Bus PropertiesChanged signal");
+    }
+    // Device objects go away when a device is removed (unpaired)
+    if (!m_dbus.connect("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved",
+                        this, SLOT(onInterfacesRemoved(QDBusObjectPath, QStringList))))
+    {
+        LOG_WARN("Failed to connect to D-Bus InterfacesRemoved signal");
+    }
+}
+
+void BluetoothMonitor::onInterfacesRemoved(const QDBusObjectPath &path, const QStringList &interfaces)
+{
+    Q_UNUSED(path);
+    if (interfaces.contains("org.bluez.Device1"))
+    {
+        emit pairedAirPodsChanged();
     }
 }
 
@@ -184,6 +200,38 @@ bool BluetoothMonitor::connectPairedAirPods(const QString &preferredAddress)
     return true;
 }
 
+QVariantList BluetoothMonitor::pairedAirPods()
+{
+    QDBusInterface objectManager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_dbus);
+    QDBusMessage reply = objectManager.call("GetManagedObjects");
+    if (reply.type() == QDBusMessage::ErrorMessage)
+    {
+        LOG_WARN("Failed to get managed objects: " << reply.errorMessage());
+        return {};
+    }
+
+    ManagedObjectList managedObjects;
+    reply.arguments().constFirst().value<QDBusArgument>() >> managedObjects;
+
+    QList<QVariantMap> devices;
+    for (auto it = managedObjects.constBegin(); it != managedObjects.constEnd(); ++it)
+    {
+        const QVariantMap props = it.value().value("org.bluez.Device1");
+        if (!props.value("Paired").toBool() ||
+            !props.value("UUIDs").toStringList().contains("74ec2172-0bad-4d01-8f77-997b2be0722a"))
+            continue;
+        devices.append({{"address", props.value("Address").toString()},
+                        {"name", props.value("Alias", props.value("Name")).toString()}});
+    }
+    std::sort(devices.begin(), devices.end(), [](const QVariantMap &a, const QVariantMap &b)
+              { return a.value("name").toString().localeAwareCompare(b.value("name").toString()) < 0; });
+
+    QVariantList result;
+    for (const QVariantMap &device : devices)
+        result.append(device);
+    return result;
+}
+
 QString BluetoothMonitor::devicePathForAddress(const QString &address)
 {
     QDBusInterface objectManager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_dbus);
@@ -247,6 +295,12 @@ void BluetoothMonitor::onPropertiesChanged(const QString &interface, const QVari
     }
 
     QString path = QDBusContext::message().path();
+
+    // UUIDs: a new pairing only shows up as AirPods once its services are read
+    if (changedProps.contains("Paired") || changedProps.contains("Alias") || changedProps.contains("UUIDs"))
+    {
+        emit pairedAirPodsChanged();
+    }
 
     if (changedProps.contains("Connected"))
     {

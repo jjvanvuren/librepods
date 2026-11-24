@@ -49,6 +49,8 @@ class AirPodsTrayApp : public QObject {
     Q_PROPERTY(bool hearingAidEnabled READ hearingAidEnabled WRITE setHearingAidEnabled NOTIFY hearingAidEnabledChanged)
     Q_PROPERTY(bool connecting READ connecting NOTIFY connectingChanged)
     Q_PROPERTY(bool disconnecting READ disconnecting NOTIFY disconnectingChanged)
+    Q_PROPERTY(QString connectingAddress READ connectingAddress NOTIFY connectingChanged)
+    Q_PROPERTY(QVariantList pairedAirPods READ pairedAirPods NOTIFY pairedAirPodsChanged)
 
 public:
     AirPodsTrayApp(bool debugMode, bool hideOnStart, QQmlApplicationEngine *parent = nullptr)
@@ -68,7 +70,13 @@ public:
         connect(trayManager, &TrayIconManager::openSettings, this, &AirPodsTrayApp::onOpenSettings);
         connect(trayManager, &TrayIconManager::noiseControlChanged, this, &AirPodsTrayApp::setNoiseControlMode);
         connect(trayManager, &TrayIconManager::conversationalAwarenessToggled, this, &AirPodsTrayApp::setConversationalAwareness);
-        connect(m_deviceInfo, &DeviceInfo::batteryStatusChanged, trayManager, &TrayIconManager::updateBatteryStatus);
+        // Only while connected: after a disconnect, BLE scans keep reporting the
+        // last pair's battery (e.g. from its case), which looks like a connection.
+        connect(m_deviceInfo, &DeviceInfo::batteryStatusChanged, this, [this](const QString &status)
+        {
+            if (areAirpodsConnected())
+                trayManager->updateBatteryStatus(status);
+        });
         connect(m_deviceInfo, &DeviceInfo::noiseControlModeChanged, trayManager, &TrayIconManager::updateNoiseControlState);
         connect(m_deviceInfo, &DeviceInfo::conversationalAwarenessChanged, trayManager, &TrayIconManager::updateConversationalAwareness);
         connect(m_deviceInfo, &DeviceInfo::modelChanged, this, [this]()
@@ -114,10 +122,17 @@ public:
         connect(this, &AirPodsTrayApp::airPodsStatusChanged, this, [this]()
         {
             if (areAirpodsConnected())
+            {
                 setConnecting(false);
+                // The tray ignored battery updates while disconnected; catch up.
+                if (!m_deviceInfo->batteryStatus().isEmpty())
+                    trayManager->updateBatteryStatus(m_deviceInfo->batteryStatus());
+            }
             else
                 setDisconnecting(false);
         });
+        connect(monitor, &BluetoothMonitor::pairedAirPodsChanged, this, &AirPodsTrayApp::refreshPairedAirPods);
+        refreshPairedAirPods();
 
         connect(m_bleManager, &BleManager::deviceFound, this, &AirPodsTrayApp::bleDeviceFound);
         connect(m_deviceInfo->getBattery(), &Battery::primaryChanged, this, &AirPodsTrayApp::primaryChanged);
@@ -167,13 +182,29 @@ public:
     bool areAirpodsConnected() const { return socket && socket->isOpen() && socket->state() == QBluetoothSocket::SocketState::ConnectedState; }
     bool connecting() const { return m_connecting; }
 
-    // Connect button in Main.qml: ask BlueZ to connect the paired AirPods.
-    Q_INVOKABLE void connectPairedAirPods()
+    QString connectingAddress() const { return m_connecting ? m_connectingAddress : QString(); }
+    QVariantList pairedAirPods() const { return m_pairedAirPods; }
+
+    // Re-read the paired AirPods for the Connect buttons (also called by Main.qml
+    // when the window opens).
+    Q_INVOKABLE void refreshPairedAirPods()
+    {
+        const QVariantList paired = monitor->pairedAirPods();
+        if (paired == m_pairedAirPods)
+            return;
+        m_pairedAirPods = paired;
+        emit pairedAirPodsChanged();
+    }
+
+    // Connect buttons in Main.qml: ask BlueZ to connect these paired AirPods
+    // (with no address, the last ones used).
+    Q_INVOKABLE void connectPairedAirPods(const QString &address = QString())
     {
         if (m_connecting || areAirpodsConnected())
             return;
+        m_connectingAddress = address.isEmpty() ? m_lastAirPodsAddress : address;
         setConnecting(true);
-        if (!monitor->connectPairedAirPods(m_lastAirPodsAddress))
+        if (!monitor->connectPairedAirPods(m_connectingAddress))
         {
             setConnecting(false);
             trayManager->showNotification(tr("Couldn't connect AirPods"), tr("No paired AirPods found"));
@@ -1054,6 +1085,7 @@ signals:
     void hearingAidEnabledChanged(bool enabled);
     void connectingChanged();
     void disconnectingChanged();
+    void pairedAirPodsChanged();
 
 private:
     QBluetoothSocket *socket = nullptr;
@@ -1069,6 +1101,8 @@ private:
     bool m_hideOnStart = false;
     bool m_connecting = false;
     QString m_lastAirPodsAddress; // kept across disconnects, unlike m_deviceInfo
+    QString m_connectingAddress;
+    QVariantList m_pairedAirPods;
     void setConnecting(bool connecting)
     {
         if (m_connecting == connecting)
