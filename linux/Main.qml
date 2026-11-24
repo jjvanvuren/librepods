@@ -7,7 +7,8 @@ ApplicationWindow {
     id: mainWindow
     visible: !airPodsTrayApp.hideOnStart
     // Fits the tallest main page (AirPods Pro 2 in Adaptive, with the noise level
-    // slider); Settings scrolls. Window rules should only place the window.
+    // slider) and all of Settings without scrolling. Window rules should only
+    // place the window.
     width: 400
     height: 460
     title: "LibrePods"
@@ -250,14 +251,16 @@ ApplicationWindow {
             ScrollView {
                 anchors.fill: parent
 
+                // Compact, so Settings fits the main page's window size without scrolling
                 Column {
                     width: parent.width
-                    spacing: 20
+                    spacing: 12
                     padding: 20
+                    topPadding: 14 // title level with the back button
 
                     Label {
                         text: qsTr("Settings")
-                        font.pixelSize: 24
+                        font.pixelSize: 20
                         // center the label
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
