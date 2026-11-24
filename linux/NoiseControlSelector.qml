@@ -21,6 +21,9 @@ Control {
     property int currentIndex: 0
     signal activated(int index)
 
+    property int buttonSize: 64
+    property int iconHeight: 38 // height the icons' drawn area is scaled to
+
     padding: 0
     focusPolicy: Qt.StrongFocus
     activeFocusOnTab: true
@@ -41,8 +44,8 @@ Control {
                 required property var modelData
                 readonly property bool selected: root.currentIndex === index
 
-                width: 52
-                height: 52
+                width: root.buttonSize
+                height: root.buttonSize
                 hoverEnabled: true
                 focusPolicy: Qt.NoFocus // Let the root control handle focus
                 ToolTip.text: modelData.text
@@ -63,12 +66,15 @@ Control {
                 }
 
                 contentItem: Item {
-                    // Drawn in the icons' own frame, scaled down to 36 px
+                    // Drawn in the icons' own frame, scaled so their drawn area
+                    // is iconHeight tall and centred in the button
                     Shape {
                         anchors.centerIn: parent
+                        anchors.horizontalCenterOffset: (Icons.size / 2 - Icons.bounds.x - Icons.bounds.width / 2) * scale
+                        anchors.verticalCenterOffset: (Icons.size / 2 - Icons.bounds.y - Icons.bounds.height / 2) * scale
                         width: Icons.size
                         height: Icons.size
-                        scale: 36 / Icons.size
+                        scale: root.iconHeight / Icons.bounds.height
                         preferredRendererType: Shape.CurveRenderer // sharp at any scale
                         antialiasing: true
 
