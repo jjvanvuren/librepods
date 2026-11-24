@@ -52,7 +52,7 @@ qt_add_qml_module(librepods
     QML_FILES
         Main.qml
         BatteryIndicator.qml
-        SegmentedControl.qml
+        NoiseControlSelector.qml
         PodColumn.qml
         Icon.qml
         KeysQRDialog.qml
@@ -71,6 +71,10 @@ qt_add_resources(librepods "resources"
         assets/podpro.png
         assets/podpro_case.png
         assets/podmax.png
+        assets/noise-off.png
+        assets/noise-cancellation.png
+        assets/noise-transparency.png
+        assets/noise-adaptive.png
         assets/fonts/SF-Symbols-6.ttf
 )
 

@@ -159,14 +159,20 @@ ApplicationWindow {
                     }
                 }
 
-                SegmentedControl {
+                NoiseControlSelector {
                     anchors.horizontalCenter: parent.horizontalCenter
                     // Indices are NoiseControlMode values, so Adaptive (3) can only be dropped from the end.
-                    model: airPodsTrayApp.deviceInfo.hasAdaptiveAudio
-                        ? [qsTr("Off"), qsTr("Noise Cancellation"), qsTr("Transparency"), qsTr("Adaptive")]
-                        : [qsTr("Off"), qsTr("Noise Cancellation"), qsTr("Transparency")]
+                    model: {
+                        const modes = [
+                            { text: qsTr("Off"), icon: "qrc:/icons/assets/noise-off.png" },
+                            { text: qsTr("Noise Cancellation"), icon: "qrc:/icons/assets/noise-cancellation.png" },
+                            { text: qsTr("Transparency"), icon: "qrc:/icons/assets/noise-transparency.png" },
+                            { text: qsTr("Adaptive"), icon: "qrc:/icons/assets/noise-adaptive.png" }
+                        ]
+                        return airPodsTrayApp.deviceInfo.hasAdaptiveAudio ? modes : modes.slice(0, 3)
+                    }
                     currentIndex: airPodsTrayApp.deviceInfo.noiseControlMode
-                    onCurrentIndexChanged: airPodsTrayApp.setNoiseControlModeInt(currentIndex)
+                    onActivated: index => airPodsTrayApp.setNoiseControlModeInt(index)
                     visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasNoiseControl
                 }
 
