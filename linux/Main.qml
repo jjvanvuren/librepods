@@ -138,14 +138,17 @@ ApplicationWindow {
 
                 SegmentedControl {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    model: [qsTr("Off"), qsTr("Noise Cancellation"), qsTr("Transparency"), qsTr("Adaptive")]
+                    // Indices are NoiseControlMode values, so Adaptive (3) can only be dropped from the end.
+                    model: airPodsTrayApp.deviceInfo.hasAdaptiveAudio
+                        ? [qsTr("Off"), qsTr("Noise Cancellation"), qsTr("Transparency"), qsTr("Adaptive")]
+                        : [qsTr("Off"), qsTr("Noise Cancellation"), qsTr("Transparency")]
                     currentIndex: airPodsTrayApp.deviceInfo.noiseControlMode
                     onCurrentIndexChanged: airPodsTrayApp.setNoiseControlModeInt(currentIndex)
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasNoiseControl
                 }
 
                 Slider {
-                    visible: airPodsTrayApp.deviceInfo.adaptiveModeActive
+                    visible: airPodsTrayApp.deviceInfo.adaptiveModeActive && airPodsTrayApp.deviceInfo.hasAdaptiveAudio
                     from: 0
                     to: 100
                     stepSize: 1
@@ -167,14 +170,14 @@ ApplicationWindow {
                 }
 
                 Switch {
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasConversationalAwareness
                     text: qsTr("Conversational Awareness")
                     checked: airPodsTrayApp.deviceInfo.conversationalAwareness
                     onCheckedChanged: airPodsTrayApp.setConversationalAwareness(checked)
                 }
 
                 Switch {
-                    visible: airPodsTrayApp.airpodsConnected
+                    visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasHearingAid
                     text: qsTr("Hearing Aid")
                     checked: airPodsTrayApp.deviceInfo.hearingAidEnabled
                     onCheckedChanged: airPodsTrayApp.setHearingAidEnabled(checked)
@@ -258,7 +261,7 @@ ApplicationWindow {
                     }
 
                     Switch {
-                        visible: airPodsTrayApp.airpodsConnected
+                        visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasOneBudANC
                         text: qsTr("One Bud ANC Mode")
                         checked: airPodsTrayApp.deviceInfo.oneBudANCMode
                         onCheckedChanged: airPodsTrayApp.deviceInfo.oneBudANCMode = checked

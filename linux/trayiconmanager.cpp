@@ -76,7 +76,7 @@ void TrayIconManager::setupMenuActions()
     connect(caToggleAction, &QAction::triggered, this, [this](bool checked)
             { emit conversationalAwarenessToggled(checked); });
 
-    trayMenu->addSeparator();
+    caSeparator = trayMenu->addSeparator();
 
     // Noise Control Options
     noiseControlGroup = new QActionGroup(trayMenu);
@@ -97,12 +97,24 @@ void TrayIconManager::setupMenuActions()
                 { emit noiseControlChanged(mode); });
     }
 
-    trayMenu->addSeparator();
+    noiseControlSeparator = trayMenu->addSeparator();
 
     // Quit action
     QAction *quitAction = new QAction(tr("Quit"), trayMenu);
     trayMenu->addAction(quitAction);
     connect(quitAction, &QAction::triggered, qApp, &QApplication::quit);
+}
+
+void TrayIconManager::setAvailableFeatures(bool noiseControl, bool adaptiveAudio, bool conversationalAwareness)
+{
+    caToggleAction->setVisible(conversationalAwareness);
+    caSeparator->setVisible(conversationalAwareness);
+    for (QAction *action : noiseControlGroup->actions())
+    {
+        const bool adaptive = action->data().toInt() == (int)NoiseControlMode::Adaptive;
+        action->setVisible(noiseControl && (adaptiveAudio || !adaptive));
+    }
+    noiseControlSeparator->setVisible(noiseControl);
 }
 
 void TrayIconManager::updateIconFromBattery(const QString &status)

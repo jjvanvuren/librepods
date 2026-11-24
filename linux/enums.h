@@ -91,6 +91,48 @@ namespace AirpodsTrayApp
             }
         }
 
+        // Features each model has, for hiding controls it lacks. Unknown models
+        // (e.g. ones newer than the tables above) keep every control.
+        inline bool modelHasNoiseControl(AirPodsModel model) {
+            switch (model) {
+                case AirPodsModel::AirPods1:
+                case AirPodsModel::AirPods2:
+                case AirPodsModel::AirPods3:
+                case AirPodsModel::AirPods4:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        // Adaptive Audio and Conversational Awareness: AirPods Pro 2 and AirPods 4 ANC.
+        inline bool modelHasAdaptiveAudio(AirPodsModel model) {
+            switch (model) {
+                case AirPodsModel::AirPodsPro2Lightning:
+                case AirPodsModel::AirPodsPro2USBC:
+                case AirPodsModel::AirPods4ANC:
+                case AirPodsModel::Unknown:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        inline bool modelHasConversationalAwareness(AirPodsModel model) {
+            return modelHasAdaptiveAudio(model);
+        }
+
+        inline bool modelHasHearingAid(AirPodsModel model) {
+            switch (model) {
+                case AirPodsModel::AirPodsPro2Lightning:
+                case AirPodsModel::AirPodsPro2USBC:
+                case AirPodsModel::Unknown:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         // TODO: Only used for parseEncryptedPacket for battery status. Is it possible to determine this
         // from the data in the packet rather than by model? i.e number of batteries
         inline bool isModelHeadset(AirPodsModel model) {

@@ -71,6 +71,11 @@ public:
         connect(m_deviceInfo, &DeviceInfo::batteryStatusChanged, trayManager, &TrayIconManager::updateBatteryStatus);
         connect(m_deviceInfo, &DeviceInfo::noiseControlModeChanged, trayManager, &TrayIconManager::updateNoiseControlState);
         connect(m_deviceInfo, &DeviceInfo::conversationalAwarenessChanged, trayManager, &TrayIconManager::updateConversationalAwareness);
+        connect(m_deviceInfo, &DeviceInfo::modelChanged, this, [this]()
+        {
+            trayManager->setAvailableFeatures(m_deviceInfo->hasNoiseControl(), m_deviceInfo->hasAdaptiveAudio(),
+                                              m_deviceInfo->hasConversationalAwareness());
+        });
         connect(trayManager, &TrayIconManager::notificationsEnabledChanged, this, &AirPodsTrayApp::saveNotificationsEnabled);
         connect(trayManager, &TrayIconManager::notificationsEnabledChanged, this, &AirPodsTrayApp::notificationsEnabledChanged);
 

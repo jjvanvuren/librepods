@@ -21,6 +21,9 @@ public:
 
     void updateConversationalAwareness(bool enabled);
 
+    // Hide menu items for features the connected model lacks.
+    void setAvailableFeatures(bool noiseControl, bool adaptiveAudio, bool conversationalAwareness);
+
     void showNotification(const QString &title, const QString &message);
 
     bool notificationsEnabled() const { return m_notificationsEnabled; }
@@ -49,7 +52,9 @@ private:
     QSystemTrayIcon *trayIcon;
     QMenu *trayMenu;
     QAction *caToggleAction;
+    QAction *caSeparator;
     QActionGroup *noiseControlGroup;
+    QAction *noiseControlSeparator;
     bool m_notificationsEnabled = true;
 
     void setupMenuActions();

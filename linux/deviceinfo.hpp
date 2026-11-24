@@ -21,6 +21,12 @@ class DeviceInfo : public QObject
     Q_PROPERTY(Battery *battery READ getBattery CONSTANT)
     Q_PROPERTY(bool oneBudANCMode READ oneBudANCMode WRITE setOneBudANCMode NOTIFY oneBudANCModeChanged)
     Q_PROPERTY(AirPodsModel model READ model WRITE setModel NOTIFY modelChanged)
+    // What the model supports, for hiding controls it lacks (see enums.h).
+    Q_PROPERTY(bool hasNoiseControl READ hasNoiseControl NOTIFY modelChanged)
+    Q_PROPERTY(bool hasAdaptiveAudio READ hasAdaptiveAudio NOTIFY modelChanged)
+    Q_PROPERTY(bool hasConversationalAwareness READ hasConversationalAwareness NOTIFY modelChanged)
+    Q_PROPERTY(bool hasHearingAid READ hasHearingAid NOTIFY modelChanged)
+    Q_PROPERTY(bool hasOneBudANC READ hasOneBudANC NOTIFY modelChanged)
     Q_PROPERTY(bool adaptiveModeActive READ adaptiveModeActive NOTIFY noiseControlModeChangedInt)
     Q_PROPERTY(QString podIcon READ podIcon NOTIFY modelChanged)
     Q_PROPERTY(QString caseIcon READ caseIcon NOTIFY modelChanged)
@@ -111,6 +117,12 @@ public:
     }
 
     AirPodsModel model() const { return m_model; }
+    bool hasNoiseControl() const { return modelHasNoiseControl(m_model); }
+    bool hasAdaptiveAudio() const { return modelHasAdaptiveAudio(m_model); }
+    bool hasConversationalAwareness() const { return modelHasConversationalAwareness(m_model); }
+    bool hasHearingAid() const { return modelHasHearingAid(m_model); }
+    // ANC with one bud in: noise-control earbuds, not the over-ear Max.
+    bool hasOneBudANC() const { return hasNoiseControl() && !isModelHeadset(m_model); }
     void setModel(AirPodsModel model)
     {
         if (m_model != model)
