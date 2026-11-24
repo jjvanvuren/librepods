@@ -179,6 +179,14 @@ ApplicationWindow {
                     checked: airPodsTrayApp.deviceInfo.hearingAidEnabled
                     onCheckedChanged: airPodsTrayApp.setHearingAidEnabled(checked)
                 }
+
+                Button {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: airPodsTrayApp.airpodsConnected
+                    enabled: !airPodsTrayApp.disconnecting
+                    text: airPodsTrayApp.disconnecting ? qsTr("Disconnecting…") : qsTr("Disconnect")
+                    onClicked: airPodsTrayApp.disconnectAirPods()
+                }
             }
 
             RoundButton {

@@ -184,6 +184,59 @@ bool BluetoothMonitor::connectPairedAirPods(const QString &preferredAddress)
     return true;
 }
 
+QString BluetoothMonitor::devicePathForAddress(const QString &address)
+{
+    QDBusInterface objectManager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_dbus);
+    QDBusMessage reply = objectManager.call("GetManagedObjects");
+    if (reply.type() == QDBusMessage::ErrorMessage)
+    {
+        LOG_WARN("Failed to get managed objects: " << reply.errorMessage());
+        return QString();
+    }
+
+    ManagedObjectList managedObjects;
+    reply.arguments().constFirst().value<QDBusArgument>() >> managedObjects;
+
+    for (auto it = managedObjects.constBegin(); it != managedObjects.constEnd(); ++it)
+    {
+        const QVariantMap props = it.value().value("org.bluez.Device1");
+        if (props.value("Address").toString().compare(address, Qt::CaseInsensitive) == 0)
+        {
+            return it.key().path();
+        }
+    }
+    return QString();
+}
+
+bool BluetoothMonitor::disconnectDevice(const QString &address)
+{
+    const QString devicePath = devicePathForAddress(address);
+    if (devicePath.isEmpty())
+    {
+        LOG_WARN("Device not known to BlueZ: " << address);
+        return false;
+    }
+
+    LOG_INFO("Disconnecting AirPods: " << address);
+    QDBusInterface device("org.bluez", devicePath, "org.bluez.Device1", m_dbus);
+    auto *watcher = new QDBusPendingCallWatcher(device.asyncCall("Disconnect"), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call)
+    {
+        const QDBusPendingReply<> result = *call;
+        if (result.isError())
+        {
+            LOG_WARN("Failed to disconnect AirPods: " << result.error().message());
+            emit disconnectFinished(false, result.error().message());
+        }
+        else
+        {
+            emit disconnectFinished(true, QString());
+        }
+        call->deleteLater();
+    });
+    return true;
+}
+
 void BluetoothMonitor::onPropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps)
 {
     Q_UNUSED(invalidatedProps);

@@ -48,6 +48,7 @@ class AirPodsTrayApp : public QObject {
     Q_PROPERTY(QString phoneMacStatus READ phoneMacStatus NOTIFY phoneMacStatusChanged)
     Q_PROPERTY(bool hearingAidEnabled READ hearingAidEnabled WRITE setHearingAidEnabled NOTIFY hearingAidEnabledChanged)
     Q_PROPERTY(bool connecting READ connecting NOTIFY connectingChanged)
+    Q_PROPERTY(bool disconnecting READ disconnecting NOTIFY disconnectingChanged)
 
 public:
     AirPodsTrayApp(bool debugMode, bool hideOnStart, QQmlApplicationEngine *parent = nullptr)
@@ -93,10 +94,24 @@ public:
             // is up (airPodsStatusChanged), or give up after 15 s.
             QTimer::singleShot(15000, this, [this]() { setConnecting(false); });
         });
+        connect(monitor, &BluetoothMonitor::disconnectFinished, this, [this](bool success, const QString &error)
+        {
+            if (!success)
+            {
+                setDisconnecting(false);
+                trayManager->showNotification(tr("Couldn't disconnect AirPods"), error);
+                return;
+            }
+            // BlueZ reports Connected=false next, which runs onDeviceDisconnected
+            // (airPodsStatusChanged); give up waiting after 10 s.
+            QTimer::singleShot(10000, this, [this]() { setDisconnecting(false); });
+        });
         connect(this, &AirPodsTrayApp::airPodsStatusChanged, this, [this]()
         {
             if (areAirpodsConnected())
                 setConnecting(false);
+            else
+                setDisconnecting(false);
         });
 
         connect(m_bleManager, &BleManager::deviceFound, this, &AirPodsTrayApp::bleDeviceFound);
@@ -157,6 +172,25 @@ public:
         {
             setConnecting(false);
             trayManager->showNotification(tr("Couldn't connect AirPods"), tr("No paired AirPods found"));
+        }
+    }
+
+    bool disconnecting() const { return m_disconnecting; }
+
+    // Disconnect button in Main.qml: disconnect the AirPods in BlueZ (audio too),
+    // e.g. to hand them to another computer.
+    Q_INVOKABLE void disconnectAirPods()
+    {
+        QString address = m_deviceInfo->bluetoothAddress();
+        if (address.isEmpty())
+            address = m_lastAirPodsAddress;
+        if (m_disconnecting || address.isEmpty())
+            return;
+        setDisconnecting(true);
+        if (!monitor->disconnectDevice(address))
+        {
+            setDisconnecting(false);
+            trayManager->showNotification(tr("Couldn't disconnect AirPods"), tr("BlueZ doesn't know %1").arg(address));
         }
     }
     int earDetectionBehavior() const { return mediaController->getEarDetectionBehavior(); }
@@ -1014,6 +1048,7 @@ signals:
     void phoneMacStatusChanged();
     void hearingAidEnabledChanged(bool enabled);
     void connectingChanged();
+    void disconnectingChanged();
 
 private:
     QBluetoothSocket *socket = nullptr;
@@ -1035,6 +1070,14 @@ private:
             return;
         m_connecting = connecting;
         emit connectingChanged();
+    }
+    bool m_disconnecting = false;
+    void setDisconnecting(bool disconnecting)
+    {
+        if (m_disconnecting == disconnecting)
+            return;
+        m_disconnecting = disconnecting;
+        emit disconnectingChanged();
     }
     DeviceInfo *m_deviceInfo;
     BleManager *m_bleManager;
