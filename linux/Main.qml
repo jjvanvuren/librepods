@@ -6,8 +6,10 @@ import QtQuick.Controls 2.15
 ApplicationWindow {
     id: mainWindow
     visible: !airPodsTrayApp.hideOnStart
+    // Fits the tallest main page (AirPods Pro 2 in Adaptive, with the noise level
+    // slider); Settings scrolls. Window rules should only place the window.
     width: 400
-    height: 300
+    height: 460
     title: "LibrePods"
     objectName: "mainWindowObject"
 
@@ -176,25 +178,31 @@ ApplicationWindow {
                     visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasNoiseControl
                 }
 
-                Slider {
+                // Slider with its label underneath, inside the layout (the label used
+                // to hang below the slider and run into the next control)
+                Column {
                     visible: airPodsTrayApp.deviceInfo.adaptiveModeActive && airPodsTrayApp.deviceInfo.hasAdaptiveAudio
-                    from: 0
-                    to: 100
-                    stepSize: 1
-                    value: airPodsTrayApp.deviceInfo.adaptiveNoiseLevel
+                    spacing: 2
 
-                    Timer {
-                        id: debounceTimer
-                        interval: 500
-                        onTriggered: if (!parent.pressed) airPodsTrayApp.setAdaptiveNoiseLevel(parent.value)
+                    Slider {
+                        id: adaptiveSlider
+                        from: 0
+                        to: 100
+                        stepSize: 1
+                        value: airPodsTrayApp.deviceInfo.adaptiveNoiseLevel
+
+                        Timer {
+                            id: debounceTimer
+                            interval: 500
+                            onTriggered: if (!adaptiveSlider.pressed) airPodsTrayApp.setAdaptiveNoiseLevel(adaptiveSlider.value)
+                        }
+
+                        onPressedChanged: if (!pressed) airPodsTrayApp.setAdaptiveNoiseLevel(value)
+                        onValueChanged: if (pressed) debounceTimer.restart()
                     }
 
-                    onPressedChanged: if (!pressed) airPodsTrayApp.setAdaptiveNoiseLevel(value)
-                    onValueChanged: if (pressed) debounceTimer.restart()
-
                     Label {
-                        text: qsTr("Adaptive Noise Level: ") + parent.value
-                        anchors.top: parent.bottom
+                        text: qsTr("Adaptive Noise Level: ") + adaptiveSlider.value
                     }
                 }
 
@@ -317,32 +325,40 @@ ApplicationWindow {
                     }
 
                     Row {
+                        // Field takes what the button leaves, so the row fits the window
+                        width: parent.width - parent.leftPadding - parent.rightPadding
                         spacing: 10
                         visible: airPodsTrayApp.airpodsConnected
 
                         TextField {
                             id: newNameField
+                            width: parent.width - parent.spacing - newNameButton.width
                             placeholderText: airPodsTrayApp.deviceInfo.deviceName
                             maximumLength: 32
                         }
 
                         Button {
+                            id: newNameButton
                             text: qsTr("Rename")
                             onClicked: airPodsTrayApp.renameAirPods(newNameField.text)
                         }
                     }
 
                     Row {
+                        // Field takes what the button leaves, so the row fits the window
+                        width: parent.width - parent.leftPadding - parent.rightPadding
                         spacing: 10
                         visible: airPodsTrayApp.airpodsConnected
 
                         TextField {
                             id: newPhoneMacField
+                            width: parent.width - parent.spacing - newPhoneMacButton.width
                             placeholderText: (PHONE_MAC_ADDRESS !== "" ? PHONE_MAC_ADDRESS : "00:00:00:00:00:00")
                             maximumLength: 32
                         }
 
                         Button {
+                            id: newPhoneMacButton
                             text: qsTr("Change Phone MAC")
                             onClicked: airPodsTrayApp.setPhoneMac(newPhoneMacField.text)
                         }
