@@ -10,16 +10,16 @@ import "NoiseControlIcons.js" as Icons
 // the system palette's colours; the selected mode's circle is filled with the
 // highlight colour.
 //
-// model: [{text, icon}], icon being a key of Icons.icons, indexed by
-// NoiseControlMode value. Choosing a mode emits activated(index) and leaves
-// currentIndex to its binding, so the owner decides when the selection changes
+// model: [{text, icon, mode}], icon being a key of Icons.icons and mode a
+// NoiseControlMode value. Choosing a mode emits activated(mode) and leaves
+// currentMode to its binding, so the owner decides when the selection changes
 // (e.g. once the AirPods confirm it).
 Control {
     id: root
 
     property var model: []
-    property int currentIndex: 0
-    signal activated(int index)
+    property int currentMode: -1
+    signal activated(int mode)
 
     property int buttonSize: 64 // even, so the 44 px icon frame sits on whole pixels
 
@@ -41,7 +41,7 @@ Control {
                 id: modeButton
                 required property int index
                 required property var modelData
-                readonly property bool selected: root.currentIndex === index
+                readonly property bool selected: root.currentMode === modelData.mode
 
                 width: root.buttonSize
                 height: root.buttonSize
@@ -81,7 +81,7 @@ Control {
 
                 onClicked: {
                     if (!selected)
-                        root.activated(index)
+                        root.activated(modelData.mode)
                 }
             }
         }
@@ -89,11 +89,15 @@ Control {
 
     // Keyboard: arrows, Home/End and 1-9 pick a mode
     Keys.onPressed: event => {
+        let current = -1
+        for (let i = 0; i < root.model.length; i++)
+            if (root.model[i].mode === root.currentMode)
+                current = i
         let target = -1
         if (event.key === Qt.Key_Left)
-            target = root.currentIndex - 1
+            target = current - 1
         else if (event.key === Qt.Key_Right)
-            target = root.currentIndex + 1
+            target = current + 1
         else if (event.key === Qt.Key_Home)
             target = 0
         else if (event.key === Qt.Key_End)
@@ -102,8 +106,8 @@ Control {
             target = event.key - Qt.Key_1
 
         if (target >= 0 && target < root.model.length) {
-            if (target !== root.currentIndex)
-                root.activated(target)
+            if (target !== current)
+                root.activated(root.model[target].mode)
             event.accepted = true
         }
     }

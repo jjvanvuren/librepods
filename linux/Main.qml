@@ -161,18 +161,18 @@ ApplicationWindow {
 
                 NoiseControlSelector {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    // Indices are NoiseControlMode values, so Adaptive (3) can only be dropped from the end.
+                    // No Off: AirPods refuse it unless their "Allow Off" option is on,
+                    // and turning that on as well made AirPods Pro 2 drop the connection.
                     model: {
                         const modes = [
-                            { text: qsTr("Off"), icon: "off" },
-                            { text: qsTr("Noise Cancellation"), icon: "noise-cancellation" },
-                            { text: qsTr("Transparency"), icon: "transparency" },
-                            { text: qsTr("Adaptive"), icon: "adaptive" }
+                            { text: qsTr("Noise Cancellation"), icon: "noise-cancellation", mode: 1 },
+                            { text: qsTr("Transparency"), icon: "transparency", mode: 2 },
+                            { text: qsTr("Adaptive"), icon: "adaptive", mode: 3 }
                         ]
-                        return airPodsTrayApp.deviceInfo.hasAdaptiveAudio ? modes : modes.slice(0, 3)
+                        return airPodsTrayApp.deviceInfo.hasAdaptiveAudio ? modes : modes.slice(0, 2)
                     }
-                    currentIndex: airPodsTrayApp.deviceInfo.noiseControlMode
-                    onActivated: index => airPodsTrayApp.setNoiseControlModeInt(index)
+                    currentMode: airPodsTrayApp.deviceInfo.noiseControlMode
+                    onActivated: mode => airPodsTrayApp.setNoiseControlModeInt(mode)
                     visible: airPodsTrayApp.airpodsConnected && airPodsTrayApp.deviceInfo.hasNoiseControl
                 }
 

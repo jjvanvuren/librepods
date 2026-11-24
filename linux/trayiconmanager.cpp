@@ -83,8 +83,8 @@ void TrayIconManager::setupMenuActions()
     const QPair<QString, NoiseControlMode> noiseOptions[] = {
         {tr("Adaptive"), NoiseControlMode::Adaptive},
         {tr("Transparency"), NoiseControlMode::Transparency},
-        {tr("Noise Cancellation"), NoiseControlMode::NoiseCancellation},
-        {tr("Off"), NoiseControlMode::Off}};
+        {tr("Noise Cancellation"), NoiseControlMode::NoiseCancellation}};
+    // No Off: AirPods refuse it unless their "Allow Off" option is on (see Main.qml)
 
     for (auto option : noiseOptions)
     {

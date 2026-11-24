@@ -4,15 +4,11 @@
 // Android app's noise_cancellation, transparency and adaptive images). Rebuilt
 // from circles, a ring and four-point stars measured from those images, on a
 // 44 px grid with edges on whole pixels so they stay sharp on 1x screens.
-// "off" is the person alone. COLOR in an icon's SVG is replaced by its colour.
+// COLOR in an icon's SVG is replaced by its colour.
 
 var size = 44
 
 var icons = {
-    "off": {
-        bounds: [10, 11, 34, 38], // x0, y0, x1, y1
-        svg: '<ellipse cx="22" cy="17.5" rx="6" ry="6.5"/><path d="M10,36 A12,10 0 0 1 34,36 L34,36.5 Q34,38 32.5,38 L11.5,38 Q10,38 10,36.5 Z"/>'
-    },
     "noise-cancellation": {
         bounds: [10, 6, 34, 38], // x0, y0, x1, y1
         svg: '<path fill="none" stroke="COLOR" stroke-width="2" stroke-linecap="round" d="M14.71,25.05 A10.5,10.5 0 1 1 29.29,25.05"/><ellipse cx="22" cy="17.5" rx="6" ry="6.5"/><path d="M10,36 A12,10 0 0 1 34,36 L34,36.5 Q34,38 32.5,38 L11.5,38 Q10,38 10,36.5 Z"/>'
