@@ -164,10 +164,10 @@ ApplicationWindow {
                     // Indices are NoiseControlMode values, so Adaptive (3) can only be dropped from the end.
                     model: {
                         const modes = [
-                            { text: qsTr("Off"), icon: "qrc:/icons/assets/noise-off.png" },
-                            { text: qsTr("Noise Cancellation"), icon: "qrc:/icons/assets/noise-cancellation.png" },
-                            { text: qsTr("Transparency"), icon: "qrc:/icons/assets/noise-transparency.png" },
-                            { text: qsTr("Adaptive"), icon: "qrc:/icons/assets/noise-adaptive.png" }
+                            { text: qsTr("Off"), icon: "off" },
+                            { text: qsTr("Noise Cancellation"), icon: "noise-cancellation" },
+                            { text: qsTr("Transparency"), icon: "transparency" },
+                            { text: qsTr("Adaptive"), icon: "adaptive" }
                         ]
                         return airPodsTrayApp.deviceInfo.hasAdaptiveAudio ? modes : modes.slice(0, 3)
                     }

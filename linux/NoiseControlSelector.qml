@@ -2,14 +2,16 @@ pragma ComponentBehavior: Bound
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import QtQuick.Effects
+import QtQuick.Shapes
+import "NoiseControlIcons.js" as Icons
 
 // Noise control modes as round icon buttons, like the AirPods controls on
-// Apple devices, with the mode's name as a tooltip. The icons are white masks
-// (assets/noise-*.png) tinted with the system palette; the selected mode's
+// Apple devices, with the mode's name as a tooltip. The icons are vector paths
+// (NoiseControlIcons.js) filled from the system palette; the selected mode's
 // circle is filled with the highlight colour.
 //
-// model: [{text, icon}], indexed by NoiseControlMode value. Choosing a mode
+// model: [{text, icon}], icon being a key of Icons.paths, indexed by
+// NoiseControlMode value. Choosing a mode
 // emits activated(index) and leaves currentIndex to its binding, so the owner
 // decides when the selection changes (e.g. once the AirPods confirm it).
 Control {
@@ -61,19 +63,23 @@ Control {
                 }
 
                 contentItem: Item {
-                    Image {
+                    // Drawn in the icons' own frame, scaled down to 36 px
+                    Shape {
                         anchors.centerIn: parent
-                        width: 36
-                        height: 36
-                        source: modeButton.modelData.icon
-                        sourceSize: Qt.size(108, 108)
-                        fillMode: Image.PreserveAspectFit
-                        mipmap: true
-                        // The icon is white: colourise it to the text colour
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            colorization: 1.0
-                            colorizationColor: modeButton.selected ? systemPalette.highlightedText : systemPalette.buttonText
+                        width: Icons.size
+                        height: Icons.size
+                        scale: 36 / Icons.size
+                        preferredRendererType: Shape.CurveRenderer // sharp at any scale
+                        antialiasing: true
+
+                        ShapePath {
+                            strokeWidth: -1
+                            fillRule: ShapePath.OddEvenFill
+                            fillColor: modeButton.selected ? systemPalette.highlightedText : systemPalette.buttonText
+
+                            PathSvg {
+                                path: Icons.paths[modeButton.modelData.icon]
+                            }
                         }
                     }
                 }
